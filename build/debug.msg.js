@@ -1,0 +1,1 @@
+SyntaxError: unknown: Unexpected token (480:8)
