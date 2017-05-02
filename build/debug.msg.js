@@ -1,1 +1,1 @@
-SyntaxError: unknown: Unexpected token (480:8)
+SyntaxError: unknown: Unexpected token, expected : (630:4)

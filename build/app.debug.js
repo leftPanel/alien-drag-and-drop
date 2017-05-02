@@ -453,6 +453,218 @@ function stringify(css) {
 
 
 
+//module X:\alien-drag-and-drop\src\Hyperscope\test.js start: 
+
+      
+//module X:\alien-drag-and-drop\src\Hyperscope\index.js start: 
+
+      //module X:\alien-drag-and-drop\src\Hyperscope\checkShouldScroll.js start: 
+
+      //module X:\alien-drag-and-drop\src\Hyperscope\getNodePath.js start: 
+
+      
+      const getNodePath = (function() {
+        function getNodePath(el) {
+  let node, path = [];
+
+  for (node = el; node; node = node.parentNode) {
+    if (node.nodeType === 1) {
+      path.push(node);
+    }
+  }
+  return path;
+}
+
+ 
+        return getNodePath
+      } ());
+    
+//module X:\alien-drag-and-drop\src\Hyperscope\getNodePath.js end
+
+//module X:\alien-drag-and-drop\src\Hyperscope\isScrollable.js start: 
+
+      
+      const isScrollable = (function() {
+        const overflowRegex = /(auto|scroll|hidden)/
+
+function needScroll(el, dir) {
+  let { scrollTop, scrollLeft, scrollHeight, scrollWidth, clientHeight, clientWidth } = el;
+  switch (dir) {
+    case "left":
+      return scrollLeft > 0
+      break;
+    case "right":
+      return scrollLeft + clientWidth < scrollWidth
+      break;
+    case "up":
+      return scrollTop > 0
+      break;
+    case "down":
+      return scrollTop + clientHeight < scrollHeight
+      break;
+  }
+  return false;
+}
+
+function canScroll(el) {
+  let style = el.currentStyle || window.getComputedStyle(el, null);
+  if (el === document.scrollingElement) {
+    return true;
+  }
+  if (el === document.body) {
+    return true;
+  }
+  if (el === document.documentElement) {
+    return true;
+  }
+  return overflowRegex.test(style.overflow + style.overflowY + style.overflowX);
+}
+
+function isScrollable(el, dir) { // dir: left, right, up, down
+  return canScroll(el) && needScroll(el, dir);
+}
+
+ 
+        return isScrollable
+      } ());
+    
+//module X:\alien-drag-and-drop\src\Hyperscope\isScrollable.js end
+
+      const checkShouldScroll = (function() {
+        
+
+
+const ERROR = 20;
+
+function between(x, a, b) {
+  return x > a && x < b;
+}
+
+function checkShouldScroll(x, y, element) {
+  let path = getNodePath(element)
+    , res = { x: 0, y: 0 }
+    , rect, i;
+
+  for (i = path.length - 1; i >= 0; i--) {
+    rect = path[i].getBoundingClientRect();
+    if (between(x - rect.left, 0, ERROR) && isScrollable(path[i], "left")) {
+      res.x = -1;
+    }
+    if (between(x - rect.right, - ERROR, 0) && isScrollable(path[i], "right")) {
+      res.x = 1;
+    }
+
+    if (between(y - rect.top, 0, ERROR) && isScrollable(path[i], "up")) {
+      res.y = -1;
+    }
+    if (between(y - rect.bottom, - ERROR, 0) && isScrollable(path[i], "down")) {
+      res.y = 1;
+    }
+
+    if (res.x || res.y) {
+      return res;
+    }
+  }
+
+  return res;
+}
+
+ 
+        return checkShouldScroll
+      } ());
+    
+//module X:\alien-drag-and-drop\src\Hyperscope\checkShouldScroll.js end
+
+//module X:\alien-drag-and-drop\src\Hyperscope\getCloestScrollableElement.js start: 
+
+      
+
+      const getCloestScrollableElement = (function() {
+        
+
+
+function getCloestScrollableElement(element, direction) {
+  let path = getNodePath(element)
+  , i;
+
+  for (i = 0; i < path.length; i ++) {
+    if (isScrollable(path[i],  direction)) {
+      return path[i];
+    }
+  }
+  return null;
+}
+
+ 
+        return getCloestScrollableElement
+      } ());
+    
+//module X:\alien-drag-and-drop\src\Hyperscope\getCloestScrollableElement.js end
+
+      const Hyperscope = (function() {
+        
+
+
+class Hyperscope {
+  constructor(step = 10, interval = 10, delay = 100) {
+    this.step = step;
+    this.interval = interval;
+    this.delay = delay;
+    this.timeoutHanler = null;
+  }
+
+  request(x, y, element) {
+    //0. 判断是否需要滚动
+    let {x: dx, y: dy} = checkShouldScroll(x, y, element)
+    , direction = "";
+
+    direction += dx < 0
+    ? " left "
+    : dx > 0
+    ? " right "
+    : dy < 0
+    ? " up "
+    : dy > 0 
+    ? " down "
+
+    if (dx || dy) {
+      let scrollableElement = getCloestScrollableElement(element);
+
+      if (scrollableElement) {
+
+      }
+    }
+  }
+
+  cancel() {
+    clearTimeout(this.timeoutHanler);
+  }
+}
+
+ 
+        return Hyperscope
+      } ());
+    
+//module X:\alien-drag-and-drop\src\Hyperscope\index.js end
+
+      const hyperscopeTest = (function() {
+        
+
+
+function hyperscopeTest () {
+  let h = new Hyperscope();
+  listen(document.body, "mousemove", function(e) {
+    h.cancel();
+    h.request(e.clientX, e.clientY, document.elementFromPoint(e.clientX, e.clientY));
+  });
+}
+
+ 
+        return hyperscopeTest
+      } ());
+    
+//module X:\alien-drag-and-drop\src\Hyperscope\test.js end
+
       return (function() {
           
 
@@ -461,6 +673,10 @@ function stringify(css) {
 
 
 
+
+
+
+hyperscopeTest();
 
 class AlienDragAndDrop extends Subscribable {
   constructor(mountPoint) {
@@ -476,7 +692,11 @@ class AlienDragAndDrop extends Subscribable {
       , gListeners = []
 
       , handleMouseDown = e => {
-        if (gStart)
+        if (gDragStarted) {
+          // when hold the left button and press the right button?
+          handleMouseUp(e);
+          return;
+        }
         let target = e.target
           , canDrag = false
           , ghostNode = null

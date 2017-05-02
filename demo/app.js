@@ -461,6 +461,224 @@ var AlienDragAndDrop = function () {
   //module X:\alien-drag-and-drop\src\DragLayer.js end
 
 
+  //module X:\alien-drag-and-drop\src\Hyperscope\index.js start: 
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\checkShouldScroll.js start: 
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\getNodePath.js start: 
+
+
+  var getNodePath = function () {
+    function getNodePath(el) {
+      var node = void 0,
+          path = [];
+
+      for (node = el; node; node = node.parentNode) {
+        if (node.nodeType === 1) {
+          path.push(node);
+        }
+      }
+      return path;
+    }
+
+    return getNodePath;
+  }();
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\getNodePath.js end
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\isScrollable.js start: 
+
+
+  var isScrollable = function () {
+    var overflowRegex = /(auto|scroll|hidden)/;
+
+    function needScroll(el, dir) {
+      var scrollTop = el.scrollTop,
+          scrollLeft = el.scrollLeft,
+          scrollHeight = el.scrollHeight,
+          scrollWidth = el.scrollWidth,
+          clientHeight = el.clientHeight,
+          clientWidth = el.clientWidth;
+
+      switch (dir) {
+        case "left":
+          return scrollLeft > 0;
+          break;
+        case "right":
+          return scrollLeft + clientWidth < scrollWidth;
+          break;
+        case "up":
+          return scrollTop > 0;
+          break;
+        case "down":
+          return scrollTop + clientHeight < scrollHeight;
+          break;
+      }
+      return false;
+    }
+
+    function canScroll(el) {
+      var style = el.currentStyle || window.getComputedStyle(el, null);
+      if (el === document.scrollingElement) {
+        return true;
+      }
+      if (el === document.body) {
+        return true;
+      }
+      if (el === document.documentElement) {
+        return true;
+      }
+      return overflowRegex.test(style.overflow + style.overflowY + style.overflowX);
+    }
+
+    function isScrollable(el, dir) {
+      // dir: left, right, up, down
+      return canScroll(el) && needScroll(el, dir);
+    }
+
+    return isScrollable;
+  }();
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\isScrollable.js end
+
+  var checkShouldScroll = function () {
+
+    var ERROR = 20;
+
+    function between(x, a, b) {
+      return x > a && x < b;
+    }
+
+    function getRect(el) {
+      if (el === document.documentElement) {
+        return {
+          top: 0,
+          left: 0,
+          right: el.clientWidth,
+          bottom: el.clientHeight,
+          width: el.clientWidth,
+          height: el.clientHeight
+        };
+      }
+
+      return el.getBoundingClientRect();
+    }
+
+    function checkShouldScroll(x, y, element) {
+      var path = getNodePath(element),
+          res = { x: 0, y: 0 },
+          rect = void 0,
+          i = void 0;
+
+      for (i = path.length - 1; i >= 0; i--) {
+        rect = getRect(path[i]);
+        if (between(x - rect.left, 0, ERROR) && isScrollable(path[i], "left")) {
+          res.x = -1;
+        }
+        if (between(x - rect.right, -ERROR, 0) && isScrollable(path[i], "right")) {
+          res.x = 1;
+        }
+
+        if (between(y - rect.top, 0, ERROR) && isScrollable(path[i], "up")) {
+          res.y = -1;
+        }
+        if (between(y - rect.bottom, -ERROR, 0) && isScrollable(path[i], "down")) {
+          res.y = 1;
+        }
+
+        if (res.x || res.y) {
+          return res;
+        }
+      }
+
+      return res;
+    }
+
+    return checkShouldScroll;
+  }();
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\checkShouldScroll.js end
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\getCloestScrollableElement.js start: 
+
+
+  var getCloestScrollableElement = function () {
+
+    function getCloestScrollableElement(element, direction) {
+      var path = getNodePath(element),
+          i = void 0;
+
+      for (i = 0; i < path.length; i++) {
+        if (isScrollable(path[i], direction)) {
+          return path[i];
+        }
+      }
+      return null;
+    }
+
+    return getCloestScrollableElement;
+  }();
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\getCloestScrollableElement.js end
+
+  var Hyperscope = function () {
+    var Hyperscope = function () {
+      function Hyperscope() {
+        var step = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 10;
+        var interval = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 50;
+        var delay = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 100;
+
+        _classCallCheck(this, Hyperscope);
+
+        this.step = step;
+        this.interval = interval;
+        this.delay = delay;
+        this.timeoutHanler = null;
+      }
+
+      Hyperscope.prototype.request = function request(x, y, element) {
+        var _this2 = this;
+
+        setTimeout(function () {
+          scroll(x, y, element, _this2.step, _this2.interval, function (handler) {
+            return _this2.timeoutHanler = handler;
+          });
+        }, this.delay);
+      };
+
+      Hyperscope.prototype.cancel = function cancel() {
+        clearTimeout(this.timeoutHanler);
+      };
+
+      return Hyperscope;
+    }();
+
+    function scroll(x, y, element, step, interval, setHandler) {
+      //0. 判断是否需要滚动
+      var _checkShouldScroll = checkShouldScroll(x, y, element),
+          dx = _checkShouldScroll.x,
+          dy = _checkShouldScroll.y,
+          direction = dx < 0 ? "left" : dx > 0 ? "right" : dy < 0 ? "up" : dy > 0 ? "down" : "";
+
+      if (dx || dy) {
+        var scrollableElement = getCloestScrollableElement(element, direction);
+
+        if (scrollableElement) {
+          scrollableElement.scrollLeft += dx * step;
+          scrollableElement.scrollTop += dy * step;
+
+          setHandler(setTimeout(function () {
+            scroll(x, y, element, step, interval, setHandler);
+          }, interval));
+        }
+      }
+    }
+
+    return Hyperscope;
+  }();
+
+  //module X:\alien-drag-and-drop\src\Hyperscope\index.js end
+
   return function () {
     var AlienDragAndDrop = function (_Subscribable) {
       _inherits(AlienDragAndDrop, _Subscribable);
@@ -468,12 +686,12 @@ var AlienDragAndDrop = function () {
       function AlienDragAndDrop(mountPoint) {
         _classCallCheck(this, AlienDragAndDrop);
 
-        var _this2 = _possibleConstructorReturn(this, _Subscribable.call(this));
+        var _this3 = _possibleConstructorReturn(this, _Subscribable.call(this));
 
         var gDragSource = null,
             gDragLayer = null,
             gDragStarted = false,
-            gAutoScrollHandler = null,
+            gAutoScrollHandler = new Hyperscope(),
             gCanDropTarget = null,
             gTransferData = null,
             gStartPoint = {},
@@ -490,7 +708,7 @@ var AlienDragAndDrop = function () {
               ghostOffsetX = null,
               ghostOffsetY = null;
 
-          _this2.broadcast("dragstart", {
+          _this3.broadcast("dragstart", {
             target: target,
             canDrag: function canDrag() {
               return _canDrag = true;
@@ -537,7 +755,7 @@ var AlienDragAndDrop = function () {
               elementUnderMouse = null;
 
 
-          clearTimeout(gAutoScrollHandler);
+          gAutoScrollHandler.cancel();
 
           if (Math.max(Math.abs(x - gStartPoint.x), Math.abs(y - gStartPoint.y)) < 5) {
             // 手抖的不算!!!!!
@@ -553,7 +771,7 @@ var AlienDragAndDrop = function () {
           }
 
           // fire alien-drag event on the source node
-          _this2.broadcast("drag", {
+          _this3.broadcast("drag", {
             target: gDragSource,
             clientX: e.clientX,
             clientY: e.clientY
@@ -566,13 +784,13 @@ var AlienDragAndDrop = function () {
           elementUnderMouse = document.elementFromPoint(e.clientX, e.clientY);
           gDragLayer.show();
           if (elementUnderMouse) {
-            _this2.broadcast("dragover", {
+            _this3.broadcast("dragover", {
               target: elementUnderMouse,
               canDrop: function canDrop() {
                 return _canDrop = true;
               },
-              dragSource: _this2.dragSource,
-              transferData: _this2.transferData
+              dragSource: _this3.dragSource,
+              transferData: _this3.transferData
             });
 
             if (_canDrop) {
@@ -580,24 +798,20 @@ var AlienDragAndDrop = function () {
               gDragLayer.setCursor();
             }
           }
-          // if (elementUnderMouse) {
-          //   // auto scroll when the mouse is under the edge of scrollable element 
-          //   let scrollable = getClosestScrollableElement(elementUnderMouse);
-          //   // 从左边拖进来的时候经过左边缘不要滚动，通过延迟来过滤掉这种情况
-          //   this.autoScrollHandler = setTimeout(() => {
-          //     this.checkScroll(scrollable, this.getPointRelatingToVisibleBoudingBox(x, y, scrollable))
-          //   }, 100)
-          // }
+          if (elementUnderMouse) {
+            // auto scroll when the mouse is under the edge of scrollable element 
+            gAutoScrollHandler.request(e.clientX, e.clientY, elementUnderMouse);
+          }
         },
             handleMouseWheel = function handleMouseWheel(e) {
-          clearTimeout(gAutoScrollHandler);
+          gAutoScrollHandler.cancel();
         },
             handleMouseUp = function handleMouseUp(e) {
           tomato.consume(gListeners, function (fn) {
             return fn();
           });
 
-          clearTimeout(gAutoScrollHandler);
+          gAutoScrollHandler.cancel();
           gDragLayer.destroy();
           gDragLayer = null;
 
@@ -606,7 +820,7 @@ var AlienDragAndDrop = function () {
               offset = elementUnderMouse && getMousePositionRelatingToBoudingBox(e.clientX, e.clientY, elementUnderMouse) || {};
 
           if (elementUnderMouse === gCanDropTarget && gCanDropTarget !== null) {
-            _this2.broadcast("drop", {
+            _this3.broadcast("drop", {
               target: gCanDropTarget,
               dragSource: gDragSource,
               transferData: gTransferData,
@@ -616,7 +830,7 @@ var AlienDragAndDrop = function () {
           }
 
           // fire dragend event 
-          _this2.broadcast("dragend", {
+          _this3.broadcast("dragend", {
             target: gDragSource
           });
 
@@ -633,9 +847,9 @@ var AlienDragAndDrop = function () {
           e.preventDefault();
         };
 
-        _this2.listeners = [listen(mountPoint, "mousedown", handleMouseDown)];
+        _this3.listeners = [listen(mountPoint, "mousedown", handleMouseDown)];
 
-        return _this2;
+        return _this3;
       }
 
       AlienDragAndDrop.prototype.destroy = function destroy() {
@@ -643,53 +857,6 @@ var AlienDragAndDrop = function () {
           return fn();
         });
         this.unSubscribeAll();
-      };
-
-      AlienDragAndDrop.prototype.checkScroll = function checkScroll(element, _ref) {
-        var _this3 = this;
-
-        var left = _ref.left,
-            right = _ref.right,
-            top = _ref.top,
-            bottom = _ref.bottom,
-            vsbw = _ref.vsbw,
-            hsbw = _ref.hsbw;
-
-        var gate = 20,
-            F = gate,
-            timeout = 10,
-            f = .3;
-        var dx = 0,
-            dy = 0,
-            rb = bottom - hsbw,
-            rr = right - vsbw;
-        if (rb < gate) {
-          dy += (F - rb) * f;
-        } else if (top < gate) {
-          dy -= (F - top) * f;
-        }
-        if (rr < gate) {
-          dx += (F - rr) * f;
-        } else if (left < gate) {
-          dx -= (F - left) * f;
-        }
-        if (dx || dy) {
-          element.scrollLeft += dx;
-          element.scrollTop += dy;
-          // console.log("yes , im scrolling")
-
-          clearTimeout(this.autoScrollHandler);
-          this.autoScrollHandler = setTimeout(function () {
-            _this3.checkScroll(element, {
-              left: left,
-              right: right,
-              top: top,
-              bottom: bottom,
-              vsbw: vsbw,
-              hsbw: hsbw
-            });
-          }, timeout);
-        }
       };
 
       return AlienDragAndDrop;

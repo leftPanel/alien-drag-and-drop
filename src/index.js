@@ -4,7 +4,10 @@ import Subscribable from './Subscribable'
 import getMousePositionRelatedToItsTarget from './getMousePositionRelatedToItsTarget'
 import DragLayer from './DragLayer';
 import setStyle from './setStyle';
-import getMousePositionRelatingToBoudingBox from './getMousePositionRelatingToBoudingBox'
+import getMousePositionRelatingToBoudingBox from './getMousePositionRelatingToBoudingBox';
+import Hyperscope from './Hyperscope'
+
+
 
 class AlienDragAndDrop extends Subscribable {
   constructor(mountPoint) {
@@ -13,7 +16,7 @@ class AlienDragAndDrop extends Subscribable {
     let gDragSource = null
       , gDragLayer = null
       , gDragStarted = false
-      , gAutoScrollHandler = null
+      , gAutoScrollHandler = new Hyperscope()
       , gCanDropTarget = null
       , gTransferData = null
       , gStartPoint = {}
@@ -75,7 +78,7 @@ class AlienDragAndDrop extends Subscribable {
           , canDrop = false
           , elementUnderMouse = null;
 
-        clearTimeout(gAutoScrollHandler);
+        gAutoScrollHandler.cancel();
 
         if (Math.max(
           Math.abs(x - gStartPoint.x),
@@ -119,22 +122,18 @@ class AlienDragAndDrop extends Subscribable {
             gDragLayer.setCursor()
           }
         }
-        // if (elementUnderMouse) {
-        //   // auto scroll when the mouse is under the edge of scrollable element 
-        //   let scrollable = getClosestScrollableElement(elementUnderMouse);
-        //   // 从左边拖进来的时候经过左边缘不要滚动，通过延迟来过滤掉这种情况
-        //   this.autoScrollHandler = setTimeout(() => {
-        //     this.checkScroll(scrollable, this.getPointRelatingToVisibleBoudingBox(x, y, scrollable))
-        //   }, 100)
-        // }
+        if (elementUnderMouse) {
+          // auto scroll when the mouse is under the edge of scrollable element 
+          gAutoScrollHandler.request(e.clientX, e.clientY, elementUnderMouse);
+        }
       }
       , handleMouseWheel = function (e) {
-        clearTimeout(gAutoScrollHandler);
+        gAutoScrollHandler.cancel();
       }
       , handleMouseUp = e => {
         tomato.consume(gListeners, fn => fn());
 
-        clearTimeout(gAutoScrollHandler);
+        gAutoScrollHandler.cancel();
         gDragLayer.destroy();
         gDragLayer = null;
 
@@ -178,45 +177,6 @@ class AlienDragAndDrop extends Subscribable {
   destroy() {
     tomato.consume(this.listeners, fn => fn());
     this.unSubscribeAll();
-  }
-
-
-  checkScroll(element, { left, right, top, bottom, vsbw, hsbw }) {
-    const gate = 20
-      , F = gate
-      , timeout = 10
-      , f = .3;
-    let dx = 0
-      , dy = 0
-      , rb = bottom - hsbw
-      , rr = right - vsbw;
-    if (rb < gate) {
-      dy += (F - rb) * f;
-    } else if (top < gate) {
-      dy -= (F - top) * f;
-    }
-    if (rr < gate) {
-      dx += (F - rr) * f;
-    } else if (left < gate) {
-      dx -= (F - left) * f;
-    }
-    if (dx || dy) {
-      element.scrollLeft += dx;
-      element.scrollTop += dy;
-      // console.log("yes , im scrolling")
-
-      clearTimeout(this.autoScrollHandler);
-      this.autoScrollHandler = setTimeout(() => {
-        this.checkScroll(element, {
-          left: left,
-          right: right,
-          top: top,
-          bottom: bottom,
-          vsbw,
-          hsbw
-        })
-      }, timeout)
-    }
   }
 }
 
