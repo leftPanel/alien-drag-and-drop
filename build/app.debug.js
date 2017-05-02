@@ -373,7 +373,9 @@ function stringify(css) {
   
   class DragLayer {
     constructor(node, offsetX, offsetY) {
-      const CursorOffset = 20;
+      const CursorOffset = 20
+      , CursorWidth = 20
+      , CursorHeight = 20;
 
       let wrapper = document.createElement("div")
         , cursorDomNode = document.createElement("img")
@@ -385,9 +387,6 @@ function stringify(css) {
       // wrapper.style.height = node.offsetHeight + "px";
       wrapper.style.cssText = `position:fixed;z-index:9999;width:${node.offsetWidth}px;height:${node.offsetHeight}px;display:none;`
 
-      // clonedNode.style.position = "absolute";
-      // clonedNode.style.top = 0;
-      // clonedNode.style.left = 0;
       setStyle(clonedNode, {
         position: "absolute",
         top: 0,
@@ -396,11 +395,7 @@ function stringify(css) {
 
       cursorDomNode.width = CursorOffset;
       cursorDomNode.height = CursorOffset;
-      // cursorDomNode.style.position = "absolute";
-      // cursorDomNode.style.top = `${-CursorOffset / 3}px`;
-      // cursorDomNode.style.left = `${-CursorOffset / 3}px`;
-      // cursorDomNode.style.opacity = 0.8;
-      cursorDomNode.style.cssText = `position:absolute;top:${-CursorOffset / 3}px;left:${-CursorOffset / 3}px;opacity:.8;`
+      cursorDomNode.style.cssText = `position:absolute;top:${CursorOffset + }px;left:${-CursorOffset / 3}px;opacity:.8;`
       cursorDomNode.src = DROP_NO
 
       wrapper.appendChild(clonedNode);
@@ -453,9 +448,6 @@ function stringify(css) {
 
 
 
-//module X:\alien-drag-and-drop\src\Hyperscope\test.js start: 
-
-      
 //module X:\alien-drag-and-drop\src\Hyperscope\index.js start: 
 
       //module X:\alien-drag-and-drop\src\Hyperscope\checkShouldScroll.js start: 
@@ -540,13 +532,28 @@ function between(x, a, b) {
   return x > a && x < b;
 }
 
+function getRect(el) {
+  if (el === document.documentElement) {
+    return {
+      top: 0,
+      left: 0,
+      right: el.clientWidth,
+      bottom: el.clientHeight,
+      width: el.clientWidth,
+      height: el.clientHeight
+    }
+  }
+
+  return el.getBoundingClientRect();
+}
+
 function checkShouldScroll(x, y, element) {
   let path = getNodePath(element)
     , res = { x: 0, y: 0 }
     , rect, i;
 
   for (i = path.length - 1; i >= 0; i--) {
-    rect = path[i].getBoundingClientRect();
+    rect = getRect(path[i]);
     if (between(x - rect.left, 0, ERROR) && isScrollable(path[i], "left")) {
       res.x = -1;
     }
@@ -606,7 +613,7 @@ function getCloestScrollableElement(element, direction) {
 
 
 class Hyperscope {
-  constructor(step = 10, interval = 10, delay = 100) {
+  constructor(step = 10, interval = 20, delay = 100) {
     this.step = step;
     this.interval = interval;
     this.delay = delay;
@@ -614,30 +621,43 @@ class Hyperscope {
   }
 
   request(x, y, element) {
-    //0. 判断是否需要滚动
-    let {x: dx, y: dy} = checkShouldScroll(x, y, element)
-    , direction = "";
-
-    direction += dx < 0
-    ? " left "
-    : dx > 0
-    ? " right "
-    : dy < 0
-    ? " up "
-    : dy > 0 
-    ? " down "
-
-    if (dx || dy) {
-      let scrollableElement = getCloestScrollableElement(element);
-
-      if (scrollableElement) {
-
-      }
-    }
+    this.cancel();
+    this.timeoutHanler = setTimeout(() => {
+      scroll(x, y, element, this.step, this.interval, handler => {
+        this.timeoutHanler = handler;
+      });
+    }, this.delay);
   }
 
   cancel() {
     clearTimeout(this.timeoutHanler);
+  }
+}
+
+function scroll(x, y, element, step, interval, setHandler) {
+  //0. 判断是否需要滚动
+  let { x: dx, y: dy } = checkShouldScroll(x, y, element)
+    , direction = dx < 0
+      ? "left"
+      : dx > 0
+        ? "right"
+        : dy < 0
+          ? "up"
+          : dy > 0
+            ? "down"
+            : "";
+
+  if (dx || dy) {
+    let scrollableElement = getCloestScrollableElement(element, direction);
+
+    if (scrollableElement) {
+      scrollableElement.scrollLeft += (dx * step);
+      scrollableElement.scrollTop += (dy * step);
+
+      setHandler(setTimeout(function () {
+        scroll(x, y, element, step, interval, setHandler);
+      }, interval));
+    }
   }
 }
 
@@ -646,24 +666,6 @@ class Hyperscope {
       } ());
     
 //module X:\alien-drag-and-drop\src\Hyperscope\index.js end
-
-      const hyperscopeTest = (function() {
-        
-
-
-function hyperscopeTest () {
-  let h = new Hyperscope();
-  listen(document.body, "mousemove", function(e) {
-    h.cancel();
-    h.request(e.clientX, e.clientY, document.elementFromPoint(e.clientX, e.clientY));
-  });
-}
-
- 
-        return hyperscopeTest
-      } ());
-    
-//module X:\alien-drag-and-drop\src\Hyperscope\test.js end
 
       return (function() {
           
@@ -676,7 +678,6 @@ function hyperscopeTest () {
 
 
 
-hyperscopeTest();
 
 class AlienDragAndDrop extends Subscribable {
   constructor(mountPoint) {
@@ -685,7 +686,7 @@ class AlienDragAndDrop extends Subscribable {
     let gDragSource = null
       , gDragLayer = null
       , gDragStarted = false
-      , gAutoScrollHandler = null
+      , gHyperscope = new Hyperscope()
       , gCanDropTarget = null
       , gTransferData = null
       , gStartPoint = {}
@@ -717,6 +718,7 @@ class AlienDragAndDrop extends Subscribable {
             listen(document, "dragstart", handleDragStart),
             listen(document, "mouseup", handleMouseUp),
             listen(document, "mousewheel", handleMouseWheel),
+            listen(document, "DOMMouseScroll", handleMouseWheel)
           ]
           gDragSource = target;
 
@@ -747,7 +749,7 @@ class AlienDragAndDrop extends Subscribable {
           , canDrop = false
           , elementUnderMouse = null;
 
-        clearTimeout(gAutoScrollHandler);
+        gHyperscope.cancel();
 
         if (Math.max(
           Math.abs(x - gStartPoint.x),
@@ -791,22 +793,18 @@ class AlienDragAndDrop extends Subscribable {
             gDragLayer.setCursor()
           }
         }
-        // if (elementUnderMouse) {
-        //   // auto scroll when the mouse is under the edge of scrollable element 
-        //   let scrollable = getClosestScrollableElement(elementUnderMouse);
-        //   // 从左边拖进来的时候经过左边缘不要滚动，通过延迟来过滤掉这种情况
-        //   this.autoScrollHandler = setTimeout(() => {
-        //     this.checkScroll(scrollable, this.getPointRelatingToVisibleBoudingBox(x, y, scrollable))
-        //   }, 100)
-        // }
+        if (elementUnderMouse) {
+          // auto scroll when the mouse is under the edge of scrollable element 
+          gHyperscope.request(e.clientX, e.clientY, elementUnderMouse);
+        }
       }
       , handleMouseWheel = function (e) {
-        clearTimeout(gAutoScrollHandler);
+        gHyperscope.cancel();
       }
       , handleMouseUp = e => {
         tomato.consume(gListeners, fn => fn());
 
-        clearTimeout(gAutoScrollHandler);
+        gHyperscope.cancel();
         gDragLayer.destroy();
         gDragLayer = null;
 
@@ -850,45 +848,6 @@ class AlienDragAndDrop extends Subscribable {
   destroy() {
     tomato.consume(this.listeners, fn => fn());
     this.unSubscribeAll();
-  }
-
-
-  checkScroll(element, { left, right, top, bottom, vsbw, hsbw }) {
-    const gate = 20
-      , F = gate
-      , timeout = 10
-      , f = .3;
-    let dx = 0
-      , dy = 0
-      , rb = bottom - hsbw
-      , rr = right - vsbw;
-    if (rb < gate) {
-      dy += (F - rb) * f;
-    } else if (top < gate) {
-      dy -= (F - top) * f;
-    }
-    if (rr < gate) {
-      dx += (F - rr) * f;
-    } else if (left < gate) {
-      dx -= (F - left) * f;
-    }
-    if (dx || dy) {
-      element.scrollLeft += dx;
-      element.scrollTop += dy;
-      // console.log("yes , im scrolling")
-
-      clearTimeout(this.autoScrollHandler);
-      this.autoScrollHandler = setTimeout(() => {
-        this.checkScroll(element, {
-          left: left,
-          right: right,
-          top: top,
-          bottom: bottom,
-          vsbw,
-          hsbw
-        })
-      }, timeout)
-    }
   }
 }
 

@@ -16,7 +16,7 @@ class AlienDragAndDrop extends Subscribable {
     let gDragSource = null
       , gDragLayer = null
       , gDragStarted = false
-      , gAutoScrollHandler = new Hyperscope()
+      , gHyperscope = new Hyperscope()
       , gCanDropTarget = null
       , gTransferData = null
       , gStartPoint = {}
@@ -48,6 +48,7 @@ class AlienDragAndDrop extends Subscribable {
             listen(document, "dragstart", handleDragStart),
             listen(document, "mouseup", handleMouseUp),
             listen(document, "mousewheel", handleMouseWheel),
+            listen(document, "DOMMouseScroll", handleMouseWheel)
           ]
           gDragSource = target;
 
@@ -78,7 +79,7 @@ class AlienDragAndDrop extends Subscribable {
           , canDrop = false
           , elementUnderMouse = null;
 
-        gAutoScrollHandler.cancel();
+        gHyperscope.cancel();
 
         if (Math.max(
           Math.abs(x - gStartPoint.x),
@@ -124,16 +125,16 @@ class AlienDragAndDrop extends Subscribable {
         }
         if (elementUnderMouse) {
           // auto scroll when the mouse is under the edge of scrollable element 
-          gAutoScrollHandler.request(e.clientX, e.clientY, elementUnderMouse);
+          gHyperscope.request(e.clientX, e.clientY, elementUnderMouse);
         }
       }
       , handleMouseWheel = function (e) {
-        gAutoScrollHandler.cancel();
+        gHyperscope.cancel();
       }
       , handleMouseUp = e => {
         tomato.consume(gListeners, fn => fn());
 
-        gAutoScrollHandler.cancel();
+        gHyperscope.cancel();
         gDragLayer.destroy();
         gDragLayer = null;
 
